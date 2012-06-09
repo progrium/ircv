@@ -244,6 +244,8 @@ $cmd.keydown (e) ->
       $cmd.val('')
       irc5.command cmd
 
+#alert chrome.i18n.getMessage("@@extension_id")
+
 window.onbeforeunload = ->
   if Object.keys(irc5.connections).length > 0
     "You have IRC connections open."

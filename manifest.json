@@ -9,10 +9,21 @@
     "storage",
     "tabs"
   ],
+  "background": {
+    "scripts": ["src/net.js", "src/background.js"]
+  },
   "app": {
     "launch": {
       "local_path": "src/main.html"
     }
   },
-  "icons": { "16": "icon/icon16.png", "48": "icon/icon48.png", "128": "icon/icon128.png" }
+  "icons": { "16": "icon/icon16.png", "48": "icon/icon48.png", "128": "icon/icon128.png" },
+  "web_accessible_resources": [
+    "src/chat.js",
+    "src/irc.js",
+    "src/vendor/jquery.js",
+    "src/main.html",
+    "src/proxy.js",
+    "src/style.css"
+  ]
 }

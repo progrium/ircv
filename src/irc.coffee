@@ -55,38 +55,6 @@ normaliseNick = (nick) ->
 
 nicksEqual = (a, b) -> normaliseNick(a) == normaliseNick(b)
 
-# Many thanks to Dennis for his StackOverflow answer: http://goo.gl/UDanx
-string2ArrayBuffer = (string, callback) ->
-  bb = new WebKitBlobBuilder()
-  bb.append(string)
-  f = new FileReader()
-  f.onload = (e) ->
-    callback(e.target.result)
-  f.readAsArrayBuffer(bb.getBlob())
-
-arrayBuffer2String = (buf, callback) ->
-  bb = new WebKitBlobBuilder()
-  bb.append(buf)
-  f = new FileReader()
-  f.onload = (e) ->
-    callback(e.target.result)
-  f.readAsText(bb.getBlob())
-
-toSocketData = (str, cb) ->
-  string2ArrayBuffer str, (ab) ->
-    cb ab
-
-fromSocketData = (ab, cb) ->
-  console.log ab
-  arrayBuffer2String ab, cb
-
-emptySocketData = -> new ArrayBuffer(0)
-concatSocketData = (a, b) ->
-  result = new ArrayBuffer a.byteLength + b.byteLength
-  resultView = new Uint8Array result
-  resultView.set new Uint8Array a
-  resultView.set new Uint8Array(b), a.byteLength
-  result
 
 class EventEmitter
   on: (ev, cb) ->
@@ -111,7 +79,7 @@ class IRC extends EventEmitter
     @socket.on 'error', (err) => @onError err
     @socket.on 'end', (err) => @onEnd err
     @socket.on 'close', (err) => @onClose err
-    @data = emptySocketData()
+    @data = ""
 
     @partialNameLists = {}
     @channels = {}
@@ -175,33 +143,33 @@ class IRC extends EventEmitter
     @connect()
 
   onData: (pdata) ->
-    @data = concatSocketData @data, pdata
-    dataView = new Uint8Array @data
+    @data = @data + pdata
+    dataView = @data.split('')
     while dataView.length > 0
       cr = false
       crlf = undefined
       for d,i in dataView
-        if d == 0x0d
+        if d == '\r'
           cr = true
-        else if cr and d == 0x0a
+        else if cr and d == '\n'
           crlf = i
           break
         else
           cr = false
       if crlf?
-        line = @data.slice(0, crlf-1)
-        @data = @data.slice(crlf+1)
-        dataView = new Uint8Array @data
-        fromSocketData line, (lineStr) =>
-          console.log '<=', lineStr
-          @onCommand(parseCommand lineStr)
+        line = @data.split('').slice(0, crlf-1).join('')
+        @data = @data.split('').slice(crlf+1).join('')
+        dataView = @data
+        console.log '<=', line
+        @onCommand parseCommand(line)
       else
         break
 
   _send: (args...) ->
     msg = makeCommand args...
     console.log('=>', msg[0...msg.length-2])
-    toSocketData msg, (arr) => @socket.write arr
+    @socket.write msg
+
   send: (args...) ->
     return unless @state is 'connected' # TODO hm
     @_send args...

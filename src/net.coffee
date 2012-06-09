@@ -1,5 +1,38 @@
 exports = window.net = {}
 
+# Many thanks to Dennis for his StackOverflow answer: http://goo.gl/UDanx
+string2ArrayBuffer = (string, callback) ->
+  bb = new WebKitBlobBuilder()
+  bb.append(string)
+  f = new FileReader()
+  f.onload = (e) ->
+    callback(e.target.result)
+  f.readAsArrayBuffer(bb.getBlob())
+
+arrayBuffer2String = (buf, callback) ->
+  bb = new WebKitBlobBuilder()
+  bb.append(buf)
+  f = new FileReader()
+  f.onload = (e) ->
+    callback(e.target.result)
+  f.readAsText(bb.getBlob())
+
+toSocketData = (str, cb) ->
+  string2ArrayBuffer str, (ab) ->
+    cb ab
+
+fromSocketData = (ab, cb) ->
+  console.log ab
+  arrayBuffer2String ab, cb
+
+emptySocketData = -> new ArrayBuffer(0)
+concatSocketData = (a, b) ->
+  result = new ArrayBuffer a.byteLength + b.byteLength
+  resultView = new Uint8Array result
+  resultView.set new Uint8Array a
+  resultView.set new Uint8Array(b), a.byteLength
+  result
+
 # TCP socket.
 # Events emitted:
 # - 'connect': the connection succeeded, proceed.
@@ -62,20 +95,21 @@ class Socket
       @emit 'end'
       @destroy() # TODO: half-open sockets
     if readInfo.data.byteLength
-      @emit 'data', readInfo.data
+      fromSocketData readInfo.data, (str) => @emit 'data', str
 
       chrome.experimental.socket.read @socketId, @_onRead
 
-  write: (data) ->
+  write: (msg) ->
     @_active()
-    chrome.experimental.socket.write @socketId, data, (writeInfo) =>
-      if writeInfo.resultCode < 0
-        console.error "SOCKET ERROR on write: ", writeInfo.resultCode
-      console.log "Wrote #{writeInfo.bytesWritten} of #{data.byteLength} bytes"
-      if writeInfo.bytesWritten == data.byteLength
-        @emit 'drain' # TODO not sure if this works, don't rely on this message
-      else
-        console.error "Waaah can't handle non-complete writes"
+    toSocketData msg, (data) =>
+      chrome.experimental.socket.write @socketId, data, (writeInfo) =>
+        if writeInfo.resultCode < 0
+          console.error "SOCKET ERROR on write: ", writeInfo.resultCode
+        console.log "Wrote #{writeInfo.bytesWritten} of #{data.byteLength} bytes"
+        if writeInfo.bytesWritten == data.byteLength
+          @emit 'drain' # TODO not sure if this works, don't rely on this message
+        else
+          console.error "Waaah can't handle non-complete writes"
 
   # looks to me like there's no equivalent to node's end() in the socket API
   destroy: ->
